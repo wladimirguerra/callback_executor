@@ -28,10 +28,9 @@
 #
 #
 import asyncio
+import atexit
 import typing
 from typing import Callable
-
-import atexit
 
 
 class ExecutorQueue:
@@ -118,7 +117,7 @@ class ExecutorQueue:
             # See https://docs.python.org/3/library/asyncio-eventloop.html#id14
             #
             # The future.set_result 'release' the enqueue_callback and let it return the future
-            # that will return the callback value.
+            # that will have the callback value as it result.
             future.set_result(future.get_loop().run_in_executor(None, _callback))
 
             # Await between calls
