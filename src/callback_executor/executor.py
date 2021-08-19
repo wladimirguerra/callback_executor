@@ -40,7 +40,7 @@ class ExecutorQueue:
     The callback are executed in a thread pool (``ThreadPoolExecutor``) so it is possible to enqueue
     blocking callbacks too.
     """
-    _call_interval: float = 0.5
+    _call_interval: float
 
     # A queue where the str is the Tread name for debug purpose
     _queue: asyncio.Queue[(asyncio.Future, Callable[[], typing.Any], typing.Optional[str])]
@@ -49,9 +49,9 @@ class ExecutorQueue:
 
     def __init__(self, *, call_interval: float = 0.5, callback_queue_size: int = 30) -> None:
         """
-        :param call_interval: The interval between callbacks execution.
+        :param call_interval: The interval between callbacks execution in seconds. Defaults to 0.5 seconds.
         :param callback_queue_size: The maximum number of callback that can reside at the callback queue
-                to be called. The minimum value is 10. If a number less than 10 is parsed it will be coerced to 10.
+                to be called. The minimum value is 10. If a number less than 10 is provided it will be coerced to 10.
         """
         super().__init__()
         self._queue = asyncio.Queue(
@@ -88,6 +88,11 @@ class ExecutorQueue:
 
     @property
     def call_interval(self):
+        """
+        The interval to wait between two calls
+
+        :return: Interval in seconds
+        """
         return self._call_interval
 
     @call_interval.setter
@@ -96,7 +101,6 @@ class ExecutorQueue:
         The interval to wait between two calls
 
         :param interval: Interval in seconds
-        :return:
         """
         if interval <= 0.5:
             raise ValueError("Interval must be greater than 500 ms.")
@@ -125,15 +129,14 @@ class ExecutorQueue:
 
     def stop(self):
         """
-        Cancel the tasks.
-
+        Stops the queue scan and cancel the pending tasks.
         """
         if self._dispatcher_task is not None:
             self._dispatcher_task.cancel()
 
     async def enqueue_callback(self, callback: Callable[[], typing.Any],
                                thread_name_prefix: typing.Optional[str] = None,
-                               timeout: float = 10) -> typing.Awaitable:
+                               timeout: float = None) -> typing.Awaitable:
         """
         Enqueue callback to be executed one by one with :property:`callback_interval` seconds between executions.
 
@@ -141,7 +144,10 @@ class ExecutorQueue:
         wait for :param:`timeout` to put in the queue. If the timeout occurs the ``TimeoutError`` is raised.
 
 
-        :param timeout: The number in seconds to wait to put the callback in the queue if it is full.
+        :param timeout: The number in seconds to wait to put the callback in the queue if it is full. If it is not
+        provided then no timeout erro will be raise and the code will be blocked until the callback is put in
+        the queue.
+
         :param thread_name_prefix: The Thread name for debug purpose
         :param callback: The callback to be enqueued
         :return: The future that will return the callback result.
@@ -150,8 +156,9 @@ class ExecutorQueue:
         future = self._loop.create_future()
         put_task = self._queue.put((future, callback, thread_name_prefix))
 
-        # Await 10 seconds to put item on queue if it is full
-        await asyncio.wait_for(put_task, timeout=timeout)
+        if timeout is not None:
+            # Await 10 seconds to put item on queue if it is full
+            await asyncio.wait_for(put_task, timeout=timeout)
 
         # `future` is a future of a future where will return the callback value.
         # So when `await future` it will return the future that will return the callback value. Thats

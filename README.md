@@ -1,7 +1,9 @@
 # Request Sender
 
 This module provides a `CallbackExecutor` class to receive and queue callbacks to 
-be executed in a defined minimum interval.
+be executed in a configured interval between calls. 
+
+The time between calls can be greater than the configured interval, but not less.
 
 
 ## Use Case
