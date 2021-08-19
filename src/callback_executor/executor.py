@@ -1,32 +1,3 @@
-#  Copyright (c) 2021 Wladimir A. Guerra
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"), to deal
-#  in the Software without restriction, including without limitation the rights
-#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#  copies of the Software, and to permit persons to whom the Software is
-#  furnished to do so, subject to the following conditions:
-#
-#  The above copyright notice and this permission notice shall be included in all
-#  copies or substantial portions of the Software.
-#
-#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-#  THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-#  OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-#  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-#  OTHER DEALINGS IN THE SOFTWARE.
-
-#
-#  Permission is hereby granted, free of charge, to any person obtaining a copy
-#  of this software and associated documentation files (the "Software"), to deal
-#  in the Software without restriction, including without limitation the rights
-#  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-#  copies of the Software, and to permit persons to whom the Software is
-#  furnished to do so, subject to the following conditions:
-#
-#
 import asyncio
 import atexit
 import typing
@@ -35,11 +6,23 @@ from typing import Callable
 
 class ExecutorQueue:
     """
-    An executor queue class that provide a way to call *Callables* at a *call_interval*.
+    An executor queue class that provide a way to call `Callables` at a
+    `call_interval`.
 
-    The callback are executed in a thread pool (``ThreadPoolExecutor``) so it is possible to enqueue
+    The callback are executed in a thread pool (`ThreadPoolExecutor`) so
+     it is possible to enqueue
     blocking callbacks too.
+
+    Parameters
+    ----------
+    call_interval: float
+        The interval between callbacks execution in seconds.
+    callback_queue_size: int
+        The maximum number of callback that can reside at the callback
+        queue to be called. The minimum value is 10. If a number less
+        than 10 is provided it will be coerced to 10.
     """
+
     _call_interval: float
 
     # A queue where the str is the Tread name for debug purpose
@@ -48,11 +31,7 @@ class ExecutorQueue:
     _loop: typing.Optional[asyncio.AbstractEventLoop] = None
 
     def __init__(self, *, call_interval: float = 0.5, callback_queue_size: int = 30) -> None:
-        """
-        :param call_interval: The interval between callbacks execution in seconds. Defaults to 0.5 seconds.
-        :param callback_queue_size: The maximum number of callback that can reside at the callback queue
-                to be called. The minimum value is 10. If a number less than 10 is provided it will be coerced to 10.
-        """
+
         super().__init__()
         self._queue = asyncio.Queue(
             maxsize=max([callback_queue_size, 10]))
@@ -91,7 +70,10 @@ class ExecutorQueue:
         """
         The interval to wait between two calls
 
-        :return: Interval in seconds
+        Returns
+        -------
+        float
+            Interval in seconds
         """
         return self._call_interval
 
@@ -100,7 +82,10 @@ class ExecutorQueue:
         """
         The interval to wait between two calls
 
-        :param interval: Interval in seconds
+        Parameters
+        ----------
+        interval
+            Interval in seconds
         """
         if interval <= 0.5:
             raise ValueError("Interval must be greater than 500 ms.")
@@ -112,7 +97,8 @@ class ExecutorQueue:
 
     async def _dispatcher_worker(self):
         """
-        The work dispatcher that runs a worker for each enqueued callable.
+        The work dispatcher that runs a worker for each enqueued
+        callable.
         """
         while True:
             (future, _callback, thread_name) = await self._queue.get()
@@ -136,21 +122,32 @@ class ExecutorQueue:
 
     async def enqueue_callback(self, callback: Callable[[], typing.Any],
                                thread_name_prefix: typing.Optional[str] = None,
-                               timeout: float = None) -> typing.Awaitable:
+                               timeout: float = None) -> typing.Any:
         """
-        Enqueue callback to be executed one by one with :property:`callback_interval` seconds between executions.
+        Enqueue callback to be executed one by one with
+        `callback_interval` seconds between executions.
 
-        The maximum number of calls that can be enqueued is 30 by default. If the maximum is reached it will
-        wait for :param:`timeout` to put in the queue. If the timeout occurs the ``TimeoutError`` is raised.
+        The maximum number of calls that can be enqueued is 30 by
+        default. If the maximum is reached it will wait for `timeout` to
+        put in the queue. If the timeout occurs the ``TimeoutError`` is
+        raised.
 
+        Parameters
+        ----------
+        timeout
+            The number in seconds to wait to put the callback in the
+            queue if it is full. If it is not provided then no timeout
+            erro will be raise and the code will be blocked until the
+            callback is put in the queue.
+        thread_name_prefix
+            The Thread name for debug purpose.
+        callback
+            The callback to be enqueued
 
-        :param timeout: The number in seconds to wait to put the callback in the queue if it is full. If it is not
-        provided then no timeout erro will be raise and the code will be blocked until the callback is put in
-        the queue.
-
-        :param thread_name_prefix: The Thread name for debug purpose
-        :param callback: The callback to be enqueued
-        :return: The future that will return the callback result.
+        Returns
+        -------
+        typing.Any
+            The callback result.
         """
 
         future = self._loop.create_future()
